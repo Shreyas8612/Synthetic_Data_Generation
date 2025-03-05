@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 from matplotlib import pyplot as plt
 from skimage import color, exposure, morphology, transform
+from scipy import ndimage
 from sklearn.decomposition import PCA
 import networkx as nx
 
@@ -144,6 +145,67 @@ def process_fundus_image(image_path):
     # Skeletonize the image
     skeleton_image = morphology.skeletonize(clean_image)
 
+    return {
+        'filtered_image': filtered_image,
+        'binary_image': binary_image,
+        'clean_image': clean_image,
+        'skeleton_image': skeleton_image
+    }
+
+
+def skeleton_to_graph(skeleton):
+    G = nx.Graph()  # Create an empty graph
+    rows, cols = np.where(skeleton > 0)  # Look for all the white pixels in the Image and extract their coordinates
+    for y, x in zip(rows, cols):
+        G.add_node((y, x))  # Add a node to these extracted coordinates
+    for y, x in zip(rows, cols):
+        for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1),
+                       (1, 1)]:  # Check in all 8 directions for neighbouring white pixels
+            neighbor = (y + dy, x + dx)  # Calculate the new position of this neighbouring pixel
+            if neighbor in G.nodes:  # Check if this neighbour is white or black
+                G.add_edge((y, x), neighbor)  # If it is white connect the nodes and make it an edge (Line)
+    return G
+
+
+def graph_based_analysis(skeleton_image):
+    # Build the graph from the skeleton
+    graph = skeleton_to_graph(skeleton_image > 0)
+
+    # Initialize lists to store endpoints and bifurcation points
+    endpoints_graph = []
+    bifurcations_graph = []
+
+    # Iterate through each node in the graph
+    for node in graph.nodes:
+        # Get the list of neighbors for the current node
+        neighbors = list(graph.neighbors(node))
+
+        # If the node has exactly one neighbor, it is an endpoint
+        if len(neighbors) == 1:
+            endpoints_graph.append(node)
+
+        # If the node has three or more neighbors, it is a bifurcation point
+        elif len(neighbors) >= 3:
+            bifurcations_graph.append(node)
+
+    # Store the Coordinates as numpy array
+    endpoint_coords_graph = np.array(endpoints_graph)
+    bifurcation_coords_graph = np.array(bifurcations_graph)
+
+    return endpoint_coords_graph, bifurcation_coords_graph
+
+
+if __name__ == '__main__':
+    Image = 'test/images/03_test.tif'
+    results = process_fundus_image(Image)
+    filtered_image = results.get('filtered_image')
+    binary_image = results.get('binary_image')
+    clean_image = results.get('clean_image')
+    skeleton_image = results.get('skeleton_image')
+
+    # Perform graph-based analysis
+    endpoint_coords_graph, bifurcation_coords_graph = graph_based_analysis(skeleton_image)
+
     # Display results
     plt.figure(figsize=(12, 10))
 
@@ -164,62 +226,7 @@ def process_fundus_image(image_path):
     plt.title('Skeletonize Image')
 
     plt.tight_layout()
-    plt.show()
-
-    return {
-        'filtered_image': filtered_image,
-        'binary_image': binary_image,
-        'clean_image': clean_image,
-        'skeleton_image': skeleton_image
-    }
-
-if __name__ == '__main__':
-    process_fundus_image('test/images/05_test.tif')
-    skeleton_image = process_fundus_image('test/images/01_test.tif')['skeleton_image']
-
-    def skeleton_to_graph(skeleton):
-        G = nx.Graph()  # Create an empty graph
-        rows, cols = np.where(skeleton > 0)  # Look for all the white pixels in the Image and extract their coordinates
-        for y, x in zip(rows, cols):
-            G.add_node((y, x))  # Add a node to these extracted coordinates
-        for y, x in zip(rows, cols):
-            for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1),
-                           (1, 1)]:  # Check in all 8 directions for neighbouring white pixels
-                neighbor = (y + dy, x + dx)  # Calculate the new position of this neighbouring pixel
-                if neighbor in G.nodes:  # Check if this neighbour is white or black
-                    G.add_edge((y, x), neighbor)  # If it is white connect the nodes and make it an edge (Line)
-        return G
-
-
-    def graph_based_analysis(skeleton_image):
-        # Build the graph from the skeleton
-        graph = skeleton_to_graph(skeleton_image > 0)
-
-        # Initialize lists to store endpoints and bifurcation points
-        endpoints_graph = []
-        bifurcations_graph = []
-
-        # Iterate through each node in the graph
-        for node in graph.nodes:
-            # Get the list of neighbors for the current node
-            neighbors = list(graph.neighbors(node))
-
-            # If the node has exactly one neighbor, it is an endpoint
-            if len(neighbors) == 1:
-                endpoints_graph.append(node)
-
-            # If the node has three or more neighbors, it is a bifurcation point
-            elif len(neighbors) >= 3:
-                bifurcations_graph.append(node)
-
-        # Store the Coordinates as numpy array
-        endpoint_coords_graph = np.array(endpoints_graph)
-        bifurcation_coords_graph = np.array(bifurcations_graph)
-
-        return endpoint_coords_graph, bifurcation_coords_graph
-
-    # Perform graph-based analysis
-    endpoint_coords_graph, bifurcation_coords_graph = graph_based_analysis(skeleton_image)
+    # plt.show()
 
     # Create a figure with two side-by-side subplots
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
@@ -241,4 +248,4 @@ if __name__ == '__main__':
     axes[1].axis('off')
 
     plt.tight_layout()
-    plt.show()
+    #plt.show()
