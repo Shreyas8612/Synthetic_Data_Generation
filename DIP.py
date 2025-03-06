@@ -194,6 +194,62 @@ def graph_based_analysis(skeleton_image):
 
     return endpoint_coords_graph, bifurcation_coords_graph
 
+def find_branches_in_skeleton(G):
+    """
+    Extracts a list of vessel 'branches' from a skeleton graph G.
+
+    Each branch is a path between two 'break' nodes:
+      - Endpoints (degree == 1)
+      - Junctions (degree >= 3)
+    Nodes with degree == 2 are considered 'intermediate' and
+    lie along the branch rather than splitting it.
+
+    Returns: list of paths, each path = [ (r1, c1), (r2, c2), ... ]
+    """
+    all_branches = []
+    # Process each connected component separately.
+    for comp in nx.connected_components(G):
+        subG = G.subgraph(comp).copy()
+        # Identify break nodes (endpoints or junctions).
+        break_nodes = set(n for n in subG.nodes if subG.degree(n) != 2)
+
+        # If there are no break nodes, the component is a cycle or a chain.
+        if not break_nodes:
+            # For a cycle (or pure chain), simply get one traversal.
+            some_node = next(iter(subG.nodes))
+            branch = list(nx.dfs_tree(subG, source=some_node).nodes())
+            all_branches.append(branch)
+            continue
+
+        # To avoid extracting the same branch twice, track visited edges.
+        visited_edges = set()
+
+        # For each break node, walk along each adjacent branch.
+        for bn in break_nodes:
+            for nb in subG.neighbors(bn):
+                edge = tuple(sorted((bn, nb)))
+                if edge in visited_edges:
+                    continue
+                # Start a new branch from bn to nb.
+                branch = [bn, nb]
+                visited_edges.add(edge)
+                prev = bn
+                current = nb
+
+                # Follow the chain until reaching a break node.
+                # For degree-2 nodes, there should be exactly one neighbor that is not the previous node.
+                while current not in break_nodes:
+                    neighbors = list(subG.neighbors(current))
+                    # Since current has degree 2, one neighbor is 'prev', the other is next.
+                    next_node = neighbors[0] if neighbors[0] != prev else neighbors[1]
+                    branch.append(next_node)
+                    # Mark the traversed edge as visited.
+                    visited_edges.add(tuple(sorted((current, next_node))))
+                    prev, current = current, next_node
+                all_branches.append(branch)
+
+    return all_branches
+
 
 if __name__ == '__main__':
     Image = 'test/images/03_test.tif'
