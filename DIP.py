@@ -1,8 +1,7 @@
 import numpy as np
 import cv2
 from matplotlib import pyplot as plt
-from skimage import color, exposure, morphology, transform
-from scipy import ndimage
+from skimage import color, morphology
 from sklearn.decomposition import PCA
 import networkx as nx
 
@@ -16,6 +15,27 @@ def threshold_level(image):
 
     # Initialize
     cumulative_sum = np.cumsum(hist)
+
+    # Plot histogram
+    fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+
+    axes[0].bar(bin_centers, hist, width=1, color='blue', edgecolor='black', alpha=0.7)
+    axes[0].set_xlabel("Pixel Intensity (0-255)")
+    axes[0].set_ylabel("Frequency")
+    axes[0].set_title("Histogram of Image Pixel Intensities")
+    axes[0].grid(axis="y", linestyle="--", alpha=0.6)
+
+    # Plot cumulative sum
+    axes[1].plot(bin_centers, cumulative_sum, color='red', linewidth=2)
+    axes[1].set_xlabel("Pixel Intensity (0-255)")
+    axes[1].set_ylabel("Cumulative Sum")
+    axes[1].set_title("Cumulative Sum of Histogram")
+    axes[1].grid(axis="y", linestyle="--", alpha=0.6)
+
+    # Show plots
+    plt.tight_layout()
+    # plt.show()
+
     t = np.zeros(100)  # Allocate array for thresholds
 
     # Initial threshold
@@ -78,9 +98,9 @@ def threshold_level(image):
 
 def process_fundus_image(image_path):
     """
-    Process a fundus image following the MATLAB algorithm more precisely
+    Process a fundus image to extract the blood vessels
     """
-    # Read the image - use BGR as OpenCV default
+    # Read the image
     test_image = cv2.imread(image_path)
     if test_image is None:
         raise ValueError(f"Could not read image at {image_path}")
@@ -89,7 +109,7 @@ def process_fundus_image(image_path):
     resized_image = cv2.resize(test_image, (565, 584))
 
     # Convert to float in range [0,1]
-    converted_image = resized_image.astype(np.float32) / 255.0
+    converted_image = resized_image.astype(np.float32) / np.max(resized_image)
 
     # Convert BGR to RGB for proper LAB conversion
     converted_image_rgb = cv2.cvtColor(converted_image, cv2.COLOR_BGR2RGB)
@@ -106,7 +126,7 @@ def process_fundus_image(image_path):
     h, w, c = filled_image.shape
     reshaped_lab_image = filled_image.reshape(-1, c)
 
-    # Apply PCA - mimicking MATLAB's pca function
+    # Apply PCA
     pca = PCA(n_components=3)
     s = pca.fit_transform(reshaped_lab_image)
 
@@ -121,9 +141,9 @@ def process_fundus_image(image_path):
 
     # Apply CLAHE
     gray_image_uint8 = (gray_image * 255).astype(np.uint8)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(6, 6))
     enhanced_image_uint8 = clahe.apply(gray_image_uint8)
-    enhanced_image = enhanced_image_uint8.astype(np.float32) / 255.0
+    enhanced_image = enhanced_image_uint8.astype(np.float32) / np.max(enhanced_image_uint8)
 
     # Apply average filter
     kernel_size = 9
@@ -135,7 +155,7 @@ def process_fundus_image(image_path):
 
     # Apply custom thresholding
     level = threshold_level(subtracted_image)
-    binary_image = (subtracted_image > (level - 0.48)).astype(np.uint8)
+    binary_image = (subtracted_image > (level - 0.48)).astype(np.uint8) # 0.48
 
     # Remove small object
     # Convert to boolean for skimage function, then back to uint8
@@ -304,4 +324,4 @@ if __name__ == '__main__':
     axes[1].axis('off')
 
     plt.tight_layout()
-    #plt.show()
+    # plt.show()
