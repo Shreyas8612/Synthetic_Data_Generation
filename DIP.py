@@ -17,7 +17,7 @@ def threshold_level(image):
     cumulative_sum = np.cumsum(hist)
 
     # Plot histogram
-    fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+    """fig, axes = plt.subplots(1, 2, figsize=(16, 5))
 
     axes[0].bar(bin_centers, hist, width=1, color='blue', edgecolor='black', alpha=0.7)
     axes[0].set_xlabel("Pixel Intensity (0-255)")
@@ -34,7 +34,7 @@ def threshold_level(image):
 
     # Show plots
     plt.tight_layout()
-    # plt.show()
+    # plt.show()"""
 
     t = np.zeros(100)  # Allocate array for thresholds
 
@@ -146,7 +146,7 @@ def process_fundus_image(image_path):
     enhanced_image = enhanced_image_uint8.astype(np.float32) / np.max(enhanced_image_uint8)
 
     # Apply average filter
-    kernel_size = 9
+    kernel_size = 7
     kernel = np.ones((kernel_size, kernel_size), np.float32) / (kernel_size * kernel_size)
     filtered_image = cv2.filter2D(enhanced_image, -1, kernel)
 
@@ -155,11 +155,11 @@ def process_fundus_image(image_path):
 
     # Apply custom thresholding
     level = threshold_level(subtracted_image)
-    binary_image = (subtracted_image > (level - 0.48)).astype(np.uint8) # 0.48
+    binary_image = (subtracted_image > (level - 0.48)).astype(np.uint8)
 
     # Remove small object
     # Convert to boolean for skimage function, then back to uint8
-    clean_image = morphology.remove_small_objects(binary_image.astype(bool), min_size=70)
+    clean_image = morphology.remove_small_objects(binary_image.astype(bool), min_size=65, connectivity=100)
     clean_image = clean_image.astype(np.uint8)
 
     # Skeletonize the image
@@ -215,17 +215,6 @@ def graph_based_analysis(skeleton_image):
     return endpoint_coords_graph, bifurcation_coords_graph
 
 def find_branches_in_skeleton(G):
-    """
-    Extracts a list of vessel 'branches' from a skeleton graph G.
-
-    Each branch is a path between two 'break' nodes:
-      - Endpoints (degree == 1)
-      - Junctions (degree >= 3)
-    Nodes with degree == 2 are considered 'intermediate' and
-    lie along the branch rather than splitting it.
-
-    Returns: list of paths, each path = [ (r1, c1), (r2, c2), ... ]
-    """
     all_branches = []
     # Process each connected component separately.
     for comp in nx.connected_components(G):
@@ -272,7 +261,7 @@ def find_branches_in_skeleton(G):
 
 
 if __name__ == '__main__':
-    Image = 'test/images/03_test.tif'
+    Image = 'test/images/05_test.tif'
     results = process_fundus_image(Image)
     filtered_image = results.get('filtered_image')
     binary_image = results.get('binary_image')
@@ -315,7 +304,7 @@ if __name__ == '__main__':
     # Plot the skeleton with endpoints and bifurcations overlaid
     axes[1].imshow(skeleton_image, cmap='gray')
     if len(endpoint_coords_graph) > 0:
-        axes[1].scatter(endpoint_coords_graph[:, 1], endpoint_coords_graph[:, 0], color='blue', label='Endpoints', s=10)
+        axes[1].scatter(endpoint_coords_graph[:, 1], endpoint_coords_graph[:, 0], color='blue', label='Endpoints', s=2)
     if len(bifurcation_coords_graph) > 0:
         axes[1].scatter(bifurcation_coords_graph[:, 1], bifurcation_coords_graph[:, 0], color='red',
                         label='Bifurcations', s=2)
@@ -324,4 +313,4 @@ if __name__ == '__main__':
     axes[1].axis('off')
 
     plt.tight_layout()
-    # plt.show()
+    plt.show()
