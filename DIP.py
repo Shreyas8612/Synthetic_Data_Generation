@@ -5,7 +5,6 @@ from skimage import color, morphology
 from sklearn.decomposition import PCA
 import networkx as nx
 
-
 def threshold_level(image):
     # Convert to uint8 and flatten
     image_uint8 = (image * 255).astype(np.uint8)
@@ -95,7 +94,6 @@ def threshold_level(image):
 
     return level
 
-
 def process_fundus_image(image_path):
     """
     Process a fundus image to extract the blood vessels
@@ -155,11 +153,11 @@ def process_fundus_image(image_path):
 
     # Apply custom thresholding
     level = threshold_level(subtracted_image)
-    binary_image = (subtracted_image > (level - 0.48)).astype(np.uint8)
+    binary_image = (subtracted_image > (level - 0.485)).astype(np.uint8)
 
     # Remove small object
     # Convert to boolean for skimage function, then back to uint8
-    clean_image = morphology.remove_small_objects(binary_image.astype(bool), min_size=65, connectivity=100)
+    clean_image = morphology.remove_small_objects(binary_image.astype(bool), min_size=150, connectivity=200)
     clean_image = clean_image.astype(np.uint8)
 
     # Skeletonize the image
@@ -169,7 +167,7 @@ def process_fundus_image(image_path):
         'filtered_image': filtered_image,
         'binary_image': binary_image,
         'clean_image': clean_image,
-        'skeleton_image': skeleton_image
+        'skeleton_image': skeleton_image,
     }
 
 
