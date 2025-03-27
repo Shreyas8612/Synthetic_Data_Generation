@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import turtle
 import networkx as nx
-from collections import deque
 from DIP import (process_fundus_image, skeleton_to_graph)
 from OD_Detection import detect_optic_disc
 

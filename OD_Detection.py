@@ -214,13 +214,6 @@ def candidate_selection(binary_edge_map):
     # Sort regions by area (largest first)
     regions.sort(key=lambda x: x.area, reverse=True)
 
-    # Create a visualization of all regions
-    region_vis = np.zeros_like(binary_edge_map)
-
-    for i, region in enumerate(regions[:]):
-        for coord in region.coords:
-            region_vis[coord[0], coord[1]] = 50 * (i + 1)  # Assigns a unique grayscale for each region
-
     # Iterate through regions to find the candidate
     candidate_found = False
     selected_region_idx = -1
